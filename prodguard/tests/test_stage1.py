@@ -80,6 +80,9 @@ class TestLoop(unittest.TestCase):
         # by step 2 the prompt has grown: it now contains the Observation
         self.assertIn("===== PROMPT for step 2", out)
         self.assertIn("Observation:", out)
+        # the prompt contract requires a complete Final Answer (all 4 points)
+        self.assertIn("must cover ALL four points", out)
+        self.assertIn("draft next action", out)
 
     def test_max_steps_guard_exists(self):
         class LoopForever:

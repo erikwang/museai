@@ -43,6 +43,13 @@ Rules:
   that actually appeared in an Observation. No evidence = say "unknown".
 - Never claim you executed an action (restart, deploy, delete).
   You may only *draft* actions for a human to approve.
+- Your Final Answer must cover ALL four points, in this order:
+  (1) what failed, citing the fatal log evidence;
+  (2) the contributing factor (job and/or change), citing its evidence;
+  (3) the service's current status, citing its health evidence;
+  (4) the draft next action.
+  Do not skip a point: if you have no evidence for one, write "unknown"
+  for that point. A short answer that skips points is a failed answer.
 """
 
 ACTION_RE = re.compile(r"Action:\s*(\w+)\((.*?)\)", re.DOTALL)
