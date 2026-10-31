@@ -11,6 +11,10 @@ Design rule (anti-hallucination): every Observation carries an evidence id,
 e.g. [evidence: log:pricing-1502-oom]. The final answer must cite these ids.
 If a tool has no data, it says so plainly — the agent must then answer
 "unknown" instead of inventing a cause.
+
+The tools are deliberately 'dumb': they fetch facts, they never judge.
+get_recent_changes will happily return a change record — deciding whether
+that change *caused* the incident is the model's job, in its Thought step.
 """
 from __future__ import annotations
 
@@ -72,7 +76,30 @@ def get_service_health(service: str) -> str:
     return f"[evidence: health:{service}] {summary}"
 
 
+def get_recent_changes(service: str) -> str:
+    """Return recent deploys / config changes for a service.
+
+    The triage question behind this tool is the oldest one in production
+    support: 'what changed?' Most incidents follow a change, so an agent
+    that cannot ask this question is missing half the story.
+    Backed by data/changes.json (synthetic).
+    """
+    changes = _load_json("changes.json")
+    records = changes.get(service)
+    if records is None:
+        return f"[evidence: none] No change records for service '{service}'."
+    if not records:
+        return f"[evidence: none] No recent changes recorded for service '{service}'."
+    lines = [
+        f"[evidence: change:{r['change_id']}] {r['time']} {r['type']} by {r['by']}: {r['summary']}"
+        for r in records
+    ]
+    return "\n".join(lines)
+
+
 # The tool table: name -> (callable, one-line description for the prompt)
+# Registering a tool here is ALL it takes: agent.py builds the prompt's
+# tool list from this table, and the loop dispatches through it too.
 TOOLS = {
     "query_logs": (
         query_logs,
@@ -86,8 +113,12 @@ TOOLS = {
         get_service_health,
         'get_service_health(service="pricing") — current health snapshot',
     ),
+    "get_recent_changes": (
+        get_recent_changes,
+        'get_recent_changes(service="pricing") — recent deploys/config changes; always ask: what changed?',
+    ),
 }
 
-# TODO(Stage1-Exercise 1): add a 4th tool, e.g. get_recent_changes(service),
-# backed by a new data/changes.json. Register it in TOOLS above and watch
-# the agent start using it with no other code changes.
+# Stage1-Exercise 1 — DONE (see get_recent_changes above). Notice what it
+# took: one function + one data file + one row in this table. No changes
+# to agent.py at all. That is the payoff of the tool-table design.

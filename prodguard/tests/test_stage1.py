@@ -11,7 +11,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from agent import parse_action, run_agent  # noqa: E402
 from llm import MockLLM, OllamaLLM, _strip_think  # noqa: E402
-from tools import TOOLS, get_job_status, get_service_health, query_logs  # noqa: E402
+from tools import TOOLS, get_job_status, get_recent_changes, get_service_health, query_logs  # noqa: E402
 
 
 class TestTools(unittest.TestCase):
@@ -30,7 +30,17 @@ class TestTools(unittest.TestCase):
         self.assertIn("down", get_service_health("pricing"))
 
     def test_tool_table_matches_functions(self):
-        self.assertEqual(set(TOOLS), {"query_logs", "get_job_status", "get_service_health"})
+        self.assertEqual(set(TOOLS), {"query_logs", "get_job_status",
+                                      "get_service_health", "get_recent_changes"})
+
+    def test_recent_changes_finds_the_trigger_change(self):
+        out = get_recent_changes("pricing")
+        self.assertIn("[evidence: change:CHG-1042]", out)
+        self.assertIn("wildcard", out)
+
+    def test_recent_changes_empty_and_unknown(self):
+        self.assertIn("[evidence: none]", get_recent_changes("feed"))
+        self.assertIn("[evidence: none]", get_recent_changes("does_not_exist"))
 
 
 class TestParser(unittest.TestCase):
@@ -51,6 +61,8 @@ class TestLoop(unittest.TestCase):
         self.assertIn("OOM", answer)
         # anti-hallucination contract: the answer cites evidence ids
         self.assertIn("[evidence:", answer)
+        # and the investigation now includes the 'what changed?' step
+        self.assertIn("[evidence: change:CHG-1042]", answer)
 
     def test_show_prompt_prints_exact_input(self):
         import contextlib

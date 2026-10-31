@@ -32,7 +32,8 @@ class MockLLM:
       1. No observations yet        -> check the pricing logs around 15:00
       2. Log mentions a job id      -> check that job's status
       3. Job checked                -> check current service health
-      4. Health checked             -> Final Answer, citing evidence ids
+      4. Health checked             -> check recent changes ('what changed?')
+      5. Changes checked            -> Final Answer, citing evidence ids
     """
 
     name = "mock"
@@ -64,12 +65,21 @@ class MockLLM:
                 'Action: get_service_health(service="pricing")'
             )
 
+        if "[evidence: change:" not in prompt:
+            return (
+                "Thought: Before I conclude, the classic triage question: "
+                "what changed today? Let me check recent changes.\n"
+                'Action: get_recent_changes(service="pricing")'
+            )
+
         return (
             "Thought: I have enough evidence to answer.\n"
             "Final Answer: The pricing service was OOM-killed at 15:02 "
             "[evidence: log:pricing-1502-oom]. The vol_fit job vol_fit_4821 "
             "loaded 3,758 option chains at 14:58 and exhausted the heap it "
             "shares with the pricing service [evidence: job:vol_fit_4821]. "
+            "The trigger was a 14:31 config change that widened the vol_fit "
+            "prefetch chain_spec to a wildcard [evidence: change:CHG-1042]. "
             "The service is still down and needs a restart "
             "[evidence: health:pricing] — restart is a draft action only, "
             "it requires human approval."

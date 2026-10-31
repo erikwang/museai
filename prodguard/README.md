@@ -71,8 +71,11 @@ Final Answer: ... OOM-killed at 15:02 [evidence: log:pricing-1502-oom] ...
 
 ## Stage 1 exercises (marked `TODO` in the code)
 
-1. **Add a 4th tool** — `get_recent_changes(service)` backed by a new
-   `data/changes.json`. Register it in `TOOLS` and watch the prompt update itself.
+1. ✅ **Add a 4th tool** — DONE: `get_recent_changes(service)` backed by
+   `data/changes.json`, registered in `TOOLS`. Notice the investigation
+   story it completes: a 14:31 config change (wildcard chain_spec) →
+   the job loading 3,758 chains → the OOM. Try adding a 5th tool yourself
+   the same way (e.g. `get_disk_usage(service)`).
 2. **Wire a real brain** — run the same question on your local model
    (`--provider ollama`, ready out of the box) and compare its tool choices
    with MockLLM's script. *Or* complete `AnthropicLLM.complete()` /
