@@ -1,0 +1,5 @@
+2026-10-30 08:00:01 INFO  feed connected, venue=OPRA, seq=88120031
+2026-10-30 08:00:04 INFO  feed heartbeat ok, gap_count=0
+2026-10-30 12:00:04 INFO  feed heartbeat ok, gap_count=0
+2026-10-30 15:00:04 INFO  feed heartbeat ok, gap_count=0, latency_ms=3
+2026-10-30 16:00:04 INFO  feed heartbeat ok, gap_count=0

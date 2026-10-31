@@ -1,0 +1,8 @@
+2026-10-30 14:52:11 INFO  pricing heartbeat ok, heap=61%
+2026-10-30 14:58:03 INFO  job vol_fit started, job_id=vol_fit_4821, chain_spec=08SPCX*.U
+2026-10-30 14:58:41 INFO  job_id=vol_fit_4821 loaded 3758 option chains into shared heap cache
+2026-10-30 14:59:27 WARN  pricing heap=87%, GC pause 1240ms
+2026-10-30 15:00:09 WARN  pricing heap=94%, GC pause 2870ms, quote latency p99=3100ms
+2026-10-30 15:01:36 ERROR pricing heap=98%, allocation failure in VolSurfaceCache
+2026-10-30 15:02:04 FATAL java.lang.OutOfMemoryError: Java heap space — process killed (OOM)
+2026-10-30 15:02:05 ERROR pricing supervisor: process pricing (pid 2214) exited, code=137

@@ -1,0 +1,4 @@
+# Stage 1 demo + tests run on the Python standard library alone.
+# Uncomment ONE provider when you do Exercise 2 (wire a real brain):
+# anthropic>=0.40
+# openai>=1.50

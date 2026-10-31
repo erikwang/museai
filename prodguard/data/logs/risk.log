@@ -1,0 +1,6 @@
+2026-10-30 09:14:52 INFO  risk batch started, portfolio=EQD-NA-01
+2026-10-30 09:15:20 WARN  risk db query slow, elapsed=8200ms, query=var_history
+2026-10-30 09:16:03 ERROR risk db connection timeout after 30000ms, host=db-risk-02
+2026-10-30 09:16:04 ERROR risk batch aborted, no results written
+2026-10-30 09:31:44 INFO  risk db failover complete, new primary=db-risk-03
+2026-10-30 09:32:10 INFO  risk batch restarted manually, portfolio=EQD-NA-01

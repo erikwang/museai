@@ -1,0 +1,1 @@
+{"feed":{"host":"prd-eqd-02 (synthetic)","last_error":"none","since":"2026-10-30 08:00","status":"up"},"pricing":{"host":"prd-eqd-04 (synthetic)","last_error":"OOM killed, exit code 137","since":"2026-10-30 15:02","status":"down"},"risk":{"host":"prd-eqd-07 (synthetic)","last_error":"db timeout at 09:16, recovered by failover","since":"2026-10-30 09:32","status":"up"}}
