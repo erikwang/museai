@@ -63,14 +63,22 @@ def parse_action(text: str) -> tuple[str, dict] | None:
     return tool_name, dict(ARG_RE.findall(raw_args))
 
 
-def run_agent(question: str, llm=None, max_steps: int = MAX_STEPS, verbose: bool = True) -> str:
-    """Run the ReAct loop on one question. Returns the final answer text."""
+def run_agent(question: str, llm=None, max_steps: int = MAX_STEPS, verbose: bool = True,
+              show_prompt: bool = False) -> str:
+    """Run the ReAct loop on one question. Returns the final answer text.
+
+    show_prompt=True prints the EXACT string sent to the model at each step —
+    the best way to learn what a model actually 'sees'. Try it once.
+    """
     llm = llm or MockLLM()
     tool_list = "\n".join(f"- {desc}" for _, desc in (t for t in TOOLS.values()))
     scratchpad = SYSTEM_PROMPT.format(tool_list=tool_list)
     scratchpad += f"\n\nQuestion: {question}\n"
 
     for step in range(1, max_steps + 1):
+        if show_prompt:
+            print(f"===== PROMPT for step {step} ({len(scratchpad)} chars) =====\n"
+                  f"{scratchpad}\n===== END PROMPT =====")
         reply = llm.complete(scratchpad)
         scratchpad += reply.strip() + "\n"
         if verbose:

@@ -31,6 +31,8 @@ def main() -> None:
     ap.add_argument("--demo", action="store_true", help="use the scripted MockLLM (no API key)")
     ap.add_argument("--provider", choices=["ollama", "anthropic", "openai"], default="ollama")
     ap.add_argument("--model", default=None, help="model name for --provider ollama, e.g. qwen3:14b")
+    ap.add_argument("--show-prompt", action="store_true",
+                    help="print the exact prompt string sent to the model at each step")
     ap.add_argument("--question", default=DEMO_QUESTION)
     args = ap.parse_args()
 
@@ -45,7 +47,7 @@ def main() -> None:
 
     print(f"Question: {args.question}")
     print(f"Brain: {llm.name}\n")
-    answer = run_agent(args.question, llm=llm)
+    answer = run_agent(args.question, llm=llm, show_prompt=args.show_prompt)
     print("\n=== FINAL ANSWER ===")
     print(answer)
 

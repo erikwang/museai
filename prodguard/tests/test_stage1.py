@@ -52,6 +52,23 @@ class TestLoop(unittest.TestCase):
         # anti-hallucination contract: the answer cites evidence ids
         self.assertIn("[evidence:", answer)
 
+    def test_show_prompt_prints_exact_input(self):
+        import contextlib
+        import io
+
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf):
+            run_agent("Why did the pricing service fail at 3pm?",
+                      llm=MockLLM(), verbose=False, show_prompt=True)
+        out = buf.getvalue()
+        self.assertIn("===== PROMPT for step 1", out)
+        # what the model sees includes the instructions AND the question
+        self.assertIn("You are ProdGuard", out)
+        self.assertIn("Why did the pricing service fail", out)
+        # by step 2 the prompt has grown: it now contains the Observation
+        self.assertIn("===== PROMPT for step 2", out)
+        self.assertIn("Observation:", out)
+
     def test_max_steps_guard_exists(self):
         class LoopForever:
             name = "loop"
