@@ -3,10 +3,13 @@ ProdGuard — Stage 1 LLM clients.
 
 The agent loop only needs one method:  complete(prompt: str) -> str
 
-Three implementations:
+Four implementations:
   * MockLLM      — scripted, deterministic, NO API key needed. Start here.
                    It plays a fixed investigation strategy so you can watch
                    the ReAct loop turn and debug the harness itself.
+  * OllamaLLM    — a REAL model running on your own GPU via Ollama.
+                   No subscription, no API key, no data leaves your machine.
+                   This is the recommended real brain if you have a GPU.
   * AnthropicLLM — real model via the Anthropic API (fill in the TODO).
   * OpenAILLM    — real model via the OpenAI API (fill in the TODO).
 
@@ -15,8 +18,11 @@ client and the exact same agent code runs on a real brain.
 """
 from __future__ import annotations
 
+import json
 import os
 import re
+import urllib.error
+import urllib.request
 
 
 class MockLLM:
@@ -68,6 +74,80 @@ class MockLLM:
             "[evidence: health:pricing] — restart is a draft action only, "
             "it requires human approval."
         )
+
+
+def _strip_think(text: str) -> str:
+    """Remove <think>...</think> blocks some local models emit.
+
+    The ReAct parser looks for 'Thought:' / 'Action:' lines; a raw thinking
+    block in front of them can confuse it (and wastes Context Window when the
+    reply is appended to the scratchpad). Cloud APIs hide this for you —
+    locally, cleaning model output is your job. Remember this moment when
+    Stage 2 introduces Structured Output.
+    """
+    return re.sub(r"<think>.*?</think>\s*", "", text, flags=re.DOTALL).strip()
+
+
+class OllamaLLM:
+    """Real brain on your own GPU, served by Ollama (https://ollama.com).
+
+    Setup (Windows/macOS/Linux):
+        1. Install Ollama
+        2. ollama pull qwen3:8b        # ~5.2 GB — comfy on a 12 GB card
+           ollama pull qwen3:14b       # ~9.3 GB — stronger, tight on 12 GB
+        3. Ollama serves http://localhost:11434 automatically.
+
+    Uses Ollama's native /api/chat endpoint with stdlib only (no pip
+    packages), and pins num_ctx explicitly: on <=12 GB cards Ollama's
+    default context can be as small as 4K, which silently truncates the
+    agent's system prompt and produces baffling, tool-less behaviour.
+    """
+
+    name = "ollama"
+
+    def __init__(
+        self,
+        model: str | None = None,
+        host: str | None = None,
+        temperature: float = 0.0,
+        num_ctx: int = 16384,
+    ):
+        self.model = model or os.environ.get("OLLAMA_MODEL", "qwen3:8b")
+        self.host = (host or os.environ.get("OLLAMA_HOST", "http://localhost:11434")).rstrip("/")
+        self.temperature = temperature
+        self.num_ctx = num_ctx
+        self.name = f"ollama:{self.model}"
+
+    def complete(self, prompt: str) -> str:
+        payload = {
+            "model": self.model,
+            "messages": [{"role": "user", "content": prompt}],
+            "stream": False,
+            "options": {"temperature": self.temperature, "num_ctx": self.num_ctx},
+        }
+        req = urllib.request.Request(
+            f"{self.host}/api/chat",
+            data=json.dumps(payload).encode("utf-8"),
+            headers={"Content-Type": "application/json"},
+        )
+        try:
+            with urllib.request.urlopen(req, timeout=300) as resp:
+                data = json.loads(resp.read().decode("utf-8"))
+        except urllib.error.URLError as e:
+            raise RuntimeError(
+                f"Cannot reach Ollama at {self.host}. Is it installed and running? "
+                f"Install from https://ollama.com, then: ollama pull {self.model} "
+                f"(original error: {e})"
+            ) from e
+        except TimeoutError as e:
+            raise RuntimeError(
+                "Ollama timed out — the first call loads the model into VRAM "
+                "and can be slow; try again, or pull a smaller model (qwen3:8b)."
+            ) from e
+        content = data.get("message", {}).get("content", "")
+        if not content:
+            raise RuntimeError(f"Ollama returned an empty reply: {data}")
+        return _strip_think(content)
 
 
 class AnthropicLLM:

@@ -10,7 +10,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from agent import parse_action, run_agent  # noqa: E402
-from llm import MockLLM  # noqa: E402
+from llm import MockLLM, OllamaLLM, _strip_think  # noqa: E402
 from tools import TOOLS, get_job_status, get_service_health, query_logs  # noqa: E402
 
 
@@ -60,6 +60,30 @@ class TestLoop(unittest.TestCase):
 
         answer = run_agent("anything", llm=LoopForever(), max_steps=3, verbose=False)
         self.assertIn("max_steps guard", answer)
+
+
+class TestOllamaClient(unittest.TestCase):
+    """Offline tests only — no Ollama server or GPU required."""
+
+    def test_defaults_need_no_api_key(self):
+        llm = OllamaLLM()
+        self.assertEqual(llm.model, "qwen3:8b")
+        self.assertEqual(llm.host, "http://localhost:11434")
+        self.assertEqual(llm.temperature, 0.0)
+
+    def test_strip_think_blocks(self):
+        raw = "<think>long reasoning…</think>\nThought: ok\nAction: query_logs(service=\"pricing\")"
+        cleaned = _strip_think(raw)
+        self.assertNotIn("<think>", cleaned)
+        self.assertTrue(cleaned.startswith("Thought:"))
+        # and the cleaned reply still parses as an action
+        self.assertIsNotNone(parse_action(cleaned))
+
+    def test_unreachable_server_gives_actionable_error(self):
+        llm = OllamaLLM(host="http://localhost:59999")
+        with self.assertRaises(RuntimeError) as ctx:
+            llm.complete("hello")
+        self.assertIn("ollama pull", str(ctx.exception))
 
 
 if __name__ == "__main__":
