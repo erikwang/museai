@@ -117,6 +117,23 @@ class TestOllamaClient(unittest.TestCase):
             llm.complete("hello")
         self.assertIn("ollama pull", str(ctx.exception))
 
+    def test_collect_stream_assembles_tokens(self):
+        lines = [
+            b'{"message": {"content": "Thought: check "}, "done": false}',
+            b'{"message": {"content": "logs\\nAction: query_logs(service=\\"pricing\\")"}, "done": false}',
+            b'{"message": {"content": ""}, "done": true}',
+            b'',
+        ]
+        seen = []
+        content = OllamaLLM._collect_stream(lines, on_token=seen.append)
+        self.assertEqual(content, 'Thought: check logs\nAction: query_logs(service="pricing")')
+        self.assertEqual(len(seen), 2)  # empty chunks are not forwarded
+
+    def test_new_defaults_bound_the_generation(self):
+        llm = OllamaLLM()
+        self.assertLessEqual(llm.num_predict, 512)
+        self.assertTrue(llm.show_tokens)
+
 
 if __name__ == "__main__":
     unittest.main()

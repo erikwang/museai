@@ -111,6 +111,19 @@ class OllamaLLM:
     packages), and pins num_ctx explicitly: on <=12 GB cards Ollama's
     default context can be as small as 4K, which silently truncates the
     agent's system prompt and produces baffling, tool-less behaviour.
+
+    Three field lessons baked in:
+      * think=False — Qwen3's thinking mode can burn minutes generating
+        hidden reasoning before its (short) ReAct reply. ReAct already
+        externalises the reasoning as 'Thought:' lines; we don't need a
+        second, invisible one.
+      * num_predict cap — a ReAct reply is a few lines, never an essay.
+        Without a cap, a rambling model can generate 'forever' at 100% GPU
+        and the caller sees nothing, because...
+      * streaming — with stream=False the API returns only when the FULL
+        reply is done, so a working model looks identical to a hung one.
+        Streaming prints tokens as they are produced: you can watch the
+        model work, and spot a repetition loop in seconds.
     """
 
     name = "ollama"
@@ -121,28 +134,60 @@ class OllamaLLM:
         host: str | None = None,
         temperature: float = 0.0,
         num_ctx: int = 16384,
+        num_predict: int = 512,
+        show_tokens: bool = True,
     ):
         self.model = model or os.environ.get("OLLAMA_MODEL", "qwen3:8b")
         self.host = (host or os.environ.get("OLLAMA_HOST", "http://localhost:11434")).rstrip("/")
         self.temperature = temperature
         self.num_ctx = num_ctx
+        self.num_predict = num_predict
+        self.show_tokens = show_tokens
         self.name = f"ollama:{self.model}"
+
+    @staticmethod
+    def _collect_stream(lines, on_token=None) -> str:
+        """Assemble content from Ollama's NDJSON stream (one JSON per line)."""
+        parts = []
+        for line in lines:
+            if not line or not line.strip():
+                continue
+            chunk = json.loads(line.decode("utf-8") if isinstance(line, bytes) else line)
+            piece = chunk.get("message", {}).get("content", "")
+            if piece:
+                parts.append(piece)
+                if on_token:
+                    on_token(piece)
+        return "".join(parts)
 
     def complete(self, prompt: str) -> str:
         payload = {
             "model": self.model,
             "messages": [{"role": "user", "content": prompt}],
-            "stream": False,
-            "options": {"temperature": self.temperature, "num_ctx": self.num_ctx},
+            "stream": True,
+            "think": False,
+            "options": {
+                "temperature": self.temperature,
+                "num_ctx": self.num_ctx,
+                "num_predict": self.num_predict,
+            },
         }
         req = urllib.request.Request(
             f"{self.host}/api/chat",
             data=json.dumps(payload).encode("utf-8"),
             headers={"Content-Type": "application/json"},
         )
+
+        def _show(piece: str) -> None:
+            print(piece, end="", flush=True)
+
         try:
             with urllib.request.urlopen(req, timeout=300) as resp:
-                data = json.loads(resp.read().decode("utf-8"))
+                if self.show_tokens:
+                    print("[model generating — live tokens]", flush=True)
+                content = self._collect_stream(resp, on_token=_show if self.show_tokens else None)
+                if self.show_tokens:
+                    print("\n[model done]", flush=True)
         except urllib.error.URLError as e:
             raise RuntimeError(
                 f"Cannot reach Ollama at {self.host}. Is it installed and running? "
@@ -154,9 +199,8 @@ class OllamaLLM:
                 "Ollama timed out — the first call loads the model into VRAM "
                 "and can be slow; try again, or pull a smaller model (qwen3:8b)."
             ) from e
-        content = data.get("message", {}).get("content", "")
         if not content:
-            raise RuntimeError(f"Ollama returned an empty reply: {data}")
+            raise RuntimeError("Ollama returned an empty reply.")
         return _strip_think(content)
 
 
