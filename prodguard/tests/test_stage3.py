@@ -67,6 +67,21 @@ class TestAgentGrounding(unittest.TestCase):
                            llm=MockLLM(), verbose=False)
         self.assertIn("runbook:oom-triage#restart-first-recovery", answer)
 
+    def test_demo_actually_calls_the_tool(self):
+        # The citation in the final text is NOT proof the tool ran (the
+        # scripted answer contains it literally). Watch the transcript:
+        # the Action must appear, followed by a real Observation.
+        import contextlib
+        import io
+
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf):
+            run_agent("Why did the pricing service fail at 3pm?",
+                      llm=MockLLM(), verbose=True)
+        out = buf.getvalue()
+        self.assertIn("get_runbook(", out)
+        self.assertIn("Observation: [evidence: runbook:oom-triage#", out)
+
 
 if __name__ == "__main__":
     unittest.main()

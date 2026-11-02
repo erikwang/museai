@@ -73,7 +73,13 @@ class MockLLM:
                 'Action: get_recent_changes(service="pricing")'
             )
 
-        if "[evidence: runbook:" not in prompt:
+        # NOTE: check only the part AFTER 'Question:' — the system prompt
+        # itself now mentions the literal text '[evidence: runbook:...]'
+        # (in the must-consult-the-runbook rule), so scanning the whole
+        # prompt would mistake the instruction for an actual Observation
+        # and skip the call. Instructions are not evidence.
+        after_question = prompt.split("Question:", 1)[-1]
+        if "[evidence: runbook:" not in after_question:
             return (
                 "Thought: The evidence says out-of-memory kill. Before "
                 "drafting the recovery action, let me check the runbook "
