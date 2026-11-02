@@ -36,8 +36,16 @@ def main() -> None:
                     help="print the exact prompt string sent to the model at each step")
     ap.add_argument("--report", action="store_true",
                     help="Stage 2: output a validated JSON incident report instead of free text")
+    ap.add_argument("--runbook-search", metavar="QUERY", default=None,
+                    help="Stage 3: search runbooks only (no LLM) — try it: --runbook-search \"database timeout pool\"")
     ap.add_argument("--question", default=DEMO_QUESTION)
     args = ap.parse_args()
+
+    if args.runbook_search is not None:
+        from runbooks import format_results, search_runbooks
+
+        print(format_results(search_runbooks(args.runbook_search)))
+        return
 
     if args.demo:
         llm = MockLLM()

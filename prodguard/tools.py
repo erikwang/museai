@@ -97,6 +97,20 @@ def get_recent_changes(service: str) -> str:
     return "\n".join(lines)
 
 
+def get_runbook(query: str) -> str:
+    """Search the runbook library (Stage 3 RAG) for a free-text query.
+
+    Example: get_runbook(query="out of memory restart procedure").
+    Returns the top matching runbook SECTIONS, each tagged with a
+    citable evidence id like [evidence: runbook:oom-triage#restart-first-recovery].
+    The tool retrieves procedure text; deciding that the procedure
+    applies to THIS incident is still the model's judgement call.
+    """
+    from runbooks import format_results, search_runbooks
+
+    return format_results(search_runbooks(query))
+
+
 # The tool table: name -> (callable, one-line description for the prompt)
 # Registering a tool here is ALL it takes: agent.py builds the prompt's
 # tool list from this table, and the loop dispatches through it too.
@@ -116,6 +130,10 @@ TOOLS = {
     "get_recent_changes": (
         get_recent_changes,
         'get_recent_changes(service="pricing") — recent deploys/config changes; always ask: what changed?',
+    ),
+    "get_runbook": (
+        get_runbook,
+        'get_runbook(query="out of memory restart procedure") — search runbooks for the approved procedure',
     ),
 }
 

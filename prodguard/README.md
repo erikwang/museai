@@ -58,6 +58,22 @@ Observation: [evidence: log:pricing-1502-oom] ... OutOfMemoryError ...
 Final Answer: ... OOM-killed at 15:02 [evidence: log:pricing-1502-oom] ...
 ```
 
+## Stage 3 — RAG over runbooks (added)
+
+- `data/runbooks/*.md` — three synthetic runbooks (OOM triage, database
+  timeout, generic triage discipline), split into `## ` sections.
+- `runbooks.py` — the retrieval half of RAG: chunk = one section;
+  scoring = explainable keyword match (title hits ×3, body hits capped
+  per token); top-k = 2; **zero score means NO result** — irrelevant
+  text is never injected "just in case". Embeddings later only replace
+  the scorer; the chunk → score → top-k → inject shape stays.
+- `get_runbook` tool — sections return as Observations with citable
+  ids (`runbook:oom-triage#restart-first-recovery`), so the recovery
+  action is grounded in a quoted procedure, and the Stage 2
+  invented-evidence gate automatically covers runbook citations.
+- Play with retrieval without any LLM:
+  `python main.py --runbook-search "database timeout pool"`
+
 ## Files
 
 | File | Role |
@@ -65,6 +81,7 @@ Final Answer: ... OOM-killed at 15:02 [evidence: log:pricing-1502-oom] ...
 | `agent.py` | ⭐ The ReAct loop + action parser. **Read this first — it is the lesson.** |
 | `llm.py` | Brain clients: `MockLLM` (scripted), `OllamaLLM` (local GPU, ready to use), Anthropic/OpenAI stubs |
 | `tools.py` | Fake tools over local synthetic data; every result carries an evidence id |
+| `runbooks.py` | Stage 3 retrieval: chunking + keyword scoring over `data/runbooks/` |
 | `main.py` | CLI entry point (`--demo` / `--provider` / `--question`) |
 | `data/` | Synthetic logs, service health, grid job status |
 | `tests/` | Stdlib unittest smoke tests |

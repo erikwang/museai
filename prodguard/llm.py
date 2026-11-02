@@ -33,7 +33,8 @@ class MockLLM:
       2. Log mentions a job id      -> check that job's status
       3. Job checked                -> check current service health
       4. Health checked             -> check recent changes ('what changed?')
-      5. Changes checked            -> Final Answer, citing evidence ids
+      5. Changes checked            -> consult the runbook (Stage 3 RAG)
+      6. Runbook checked            -> Final Answer, citing evidence ids
     """
 
     name = "mock"
@@ -72,6 +73,14 @@ class MockLLM:
                 'Action: get_recent_changes(service="pricing")'
             )
 
+        if "[evidence: runbook:" not in prompt:
+            return (
+                "Thought: The evidence says out-of-memory kill. Before "
+                "drafting the recovery action, let me check the runbook "
+                "for the approved procedure.\n"
+                'Action: get_runbook(query="pricing service out of memory OOM restart recovery")'
+            )
+
         return (
             "Thought: I have enough evidence to answer.\n"
             "Final Answer: The pricing service was OOM-killed at 15:02 "
@@ -81,8 +90,10 @@ class MockLLM:
             "The trigger was a 14:31 config change that widened the vol_fit "
             "prefetch chain_spec to a wildcard [evidence: change:CHG-1042]. "
             "The service is still down and needs a restart "
-            "[evidence: health:pricing] — restart is a draft action only, "
-            "it requires human approval."
+            "[evidence: health:pricing] — per the runbook's restart-first "
+            "recovery section [evidence: runbook:oom-triage#restart-first-recovery], "
+            "restore the service first and investigate second. Restart is "
+            "a draft action only, it requires human approval."
         )
 
     def complete_structured(self, prompt: str, schema: dict) -> str:

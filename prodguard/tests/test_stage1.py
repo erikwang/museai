@@ -31,7 +31,8 @@ class TestTools(unittest.TestCase):
 
     def test_tool_table_matches_functions(self):
         self.assertEqual(set(TOOLS), {"query_logs", "get_job_status",
-                                      "get_service_health", "get_recent_changes"})
+                                      "get_service_health", "get_recent_changes",
+                                      "get_runbook"})
 
     def test_recent_changes_finds_the_trigger_change(self):
         out = get_recent_changes("pricing")
@@ -63,6 +64,8 @@ class TestLoop(unittest.TestCase):
         self.assertIn("[evidence:", answer)
         # and the investigation now includes the 'what changed?' step
         self.assertIn("[evidence: change:CHG-1042]", answer)
+        # ... and (Stage 3) a runbook consultation the action is grounded in
+        self.assertIn("[evidence: runbook:oom-triage#restart-first-recovery]", answer)
 
     def test_show_prompt_prints_exact_input(self):
         import contextlib

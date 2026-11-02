@@ -82,10 +82,13 @@ User symptom
 - 落地“无证据 = unknown”规则，亲手制造一个幻觉 case 并看它被拦住
 - ✅ 验收：报告 100% 可被程序解析；故意给空日志时，它回答 unknown 而不是编根因
 
-### Stage 3 — RAG Runbook · 约 3 小时
-- Runbook 切块 → Embedding → Chroma（本地向量库）→ 检索 + 引用
-- 体会 Context Window：日志塞太多会挤掉 Runbook，学着做摘要 / 只喂相关片段
+### Stage 3 — RAG Runbook · 约 3 小时 · ✅ 代码完成（2026-11-02，38 测试）
+- Runbook 切块 → 检索 → 引用（落地时把原计划的 Embedding+Chroma 换成**关键词评分**：
+  RAG 的形状 切块→打分→top-k→注入 完全一致，打分器可肉眼调试、零依赖；
+  向量版只是替换打分器，接口不变 — runbooks.py 里留了这个缝）
+- 体会 Context Window：top-k=2 且零分不返回 — 不相关的手册片段绝不硬塞进上下文
 - ✅ 验收：问一个日志里没写处置方法的故障，它能从 Runbook 找到步骤并标出处
+  （代码侧已验：相关性/排序/无匹配诚实返回/动作引用手册条款；本地模型实测待 Yu 跑）
 
 ### Stage 4 — 换 LangGraph + Human-in-the-loop · 约 3-4 小时
 - 把手写循环迁到 LangGraph：状态、节点、checkpoint
