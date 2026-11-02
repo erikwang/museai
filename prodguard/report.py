@@ -13,8 +13,9 @@ Stage 2 replaces politeness with machinery:
   3. validate_report — CODE checks the report, including the evidence
      rules. An ungrounded report never reaches the user as-is.
 
-Your three core tasks are marked TODO(YU-1..3) in this file and agent.py.
-The plumbing around them works; the *judgement* in the validator is yours.
+Status: all three core rules are implemented — YU-1 invented-evidence,
+YU-2 right-source (log:) rule, YU-3 retry-once in agent.py. The full
+suite (30 tests, 0 skipped) is the specification of what they guarantee.
 """
 from __future__ import annotations
 
@@ -142,19 +143,29 @@ def validate_report(report, scratchpad: str) -> list[str]:
 
     known_ids = extract_evidence_ids(scratchpad)
 
-    # TODO(YU-1) — the invented-evidence rule (anti-hallucination gate):
-    #   Every id in report["evidence"] must be present in known_ids.
-    #   An id the model made up is the one unforgivable sin: append
-    #   f"invented evidence id: {eid}" for each offender.
-    #   (Right now this hole is OPEN — a fabricated id sails through.
-    #    Close it. The skipped test test_invented_evidence_is_rejected
-    #    in tests/test_stage2.py turns green when you do.)
+    # YU-1 — the invented-evidence rule (anti-hallucination gate):
+    #   Every cited id must have actually appeared in the scratchpad.
+    #   Comparison is exact — no fuzzy matching, no 'close enough':
+    #   an id that is ALMOST right is still an id the model made up.
+    #   One special case: the tools' '[evidence: none]' placeholder also
+    #   lands in known_ids via the extractor, but 'none' is not evidence,
+    #   so citing it is fabrication too.
+    for eid in evidence:
+        if eid == "none" or eid not in known_ids:
+            errors.append(f"invented evidence id: {eid}")
 
-    # TODO(YU-2) — the right-source rule:
-    #   If root_cause_hypothesis != "unknown", at least one cited id must
-    #   start with "log:". Stage 1's local run cited health evidence for
-    #   the failure itself; health data is a second-hand summary, the log
-    #   line is the primary source. Append a clear error when violated.
-    #   (Skipped test: test_root_cause_needs_log_evidence.)
+    # YU-2 — the right-source rule:
+    #   A claimed root cause must rest on PRIMARY evidence: at least one
+    #   cited id from the logs themselves ("log:..."). Stage 1's local
+    #   run cited health evidence for the failure — but health data is a
+    #   second-hand summary OF the logs, and summaries lose the fatal
+    #   line. Corroboration (job/change/health) is welcome in addition,
+    #   never instead. 'unknown' reports are exempt: claiming nothing
+    #   needs no source.
+    if report["root_cause_hypothesis"] != "unknown":
+        if not any(eid.startswith("log:") for eid in evidence):
+            errors.append(
+                "root cause must cite at least one log: evidence id (primary source)"
+            )
 
     return errors

@@ -104,25 +104,39 @@ def build_report(question: str, final_answer: str, scratchpad: str, llm) -> dict
         evidence_ids="\n".join(f"- {e}" for e in evidence_ids) or "(none)",
     )
 
-    raw = _call_structured(llm, prompt)
-    try:
-        report = json.loads(raw)
-    except (json.JSONDecodeError, TypeError) as e:
-        # TODO(YU-3): before giving up, retry ONCE — call _call_structured
-        # again with the parse error appended to the prompt ('Your previous
-        # output was not valid JSON: <error>. Return ONLY the JSON object.')
-        # and try to parse that. Only fall back after the second failure.
-        return fallback_report(question, [f"formatter returned unparseable output: {e}"])
+    # YU-3 — retry ONCE, with the failure fed back to the model.
+    #   A retry is not 'ask again and hope': the second prompt carries the
+    #   exact parse error or validation error list, so the model can fix
+    #   THOSE problems instead of regenerating blindly. One retry only —
+    #   a model that fails twice with the errors spelled out is telling
+    #   you something; after that, the honest fallback beats a third roll
+    #   of the dice (and caps cost/latency, the Stage 1 lesson).
+    last_errors: list[str] = []
+    for _attempt in (1, 2):
+        raw = _call_structured(llm, prompt)
+        try:
+            report = json.loads(raw)
+        except (json.JSONDecodeError, TypeError) as e:
+            last_errors = [f"formatter returned unparseable output: {e}"]
+            prompt = (
+                prompt
+                + f"\n\nYour previous output was not valid JSON: {e}. "
+                "Return ONLY the JSON object, nothing else."
+            )
+            continue
 
-    errors = validate_report(report, scratchpad)
-    if errors:
-        # TODO(YU-3): same retry-once idea for validation errors — feed the
-        # error list back ('Validation failed: <errors>. Fix only those
-        # problems and return the full JSON again.'), re-validate the new
-        # report, and only fall back if it still fails.
-        return fallback_report(question, errors)
+        errors = validate_report(report, scratchpad)
+        if not errors:
+            return report
+        last_errors = errors
+        prompt = (
+            prompt
+            + "\n\nYour previous report failed validation:\n"
+            + "\n".join(f"- {err}" for err in errors)
+            + "\nFix ONLY those problems and return the full corrected JSON object."
+        )
 
-    return report
+    return fallback_report(question, last_errors)
 
 
 def parse_action(text: str) -> tuple[str, dict] | None:

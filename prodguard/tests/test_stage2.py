@@ -115,7 +115,6 @@ class TestPipeline(unittest.TestCase):
         self.assertEqual(result["root_cause_hypothesis"], "unknown")
 
 
-@unittest.skip("TODO(YU-1): implement the invented-evidence rule in report.py")
 class TestHomeworkYu1(unittest.TestCase):
     def test_invented_evidence_is_rejected(self):
         bad = copy.deepcopy(EXAMPLE_REPORT)
@@ -124,7 +123,6 @@ class TestHomeworkYu1(unittest.TestCase):
         self.assertTrue(any("invented" in e for e in errors), errors)
 
 
-@unittest.skip("TODO(YU-2): implement the right-source rule in report.py")
 class TestHomeworkYu2(unittest.TestCase):
     def test_root_cause_needs_log_evidence(self):
         bad = copy.deepcopy(EXAMPLE_REPORT)
@@ -133,7 +131,6 @@ class TestHomeworkYu2(unittest.TestCase):
         self.assertTrue(any("log:" in e for e in errors), errors)
 
 
-@unittest.skip("TODO(YU-3): implement retry-once in agent.py build_report")
 class TestHomeworkYu3(unittest.TestCase):
     def test_retry_once_recovers(self):
         class FlakyBrain:

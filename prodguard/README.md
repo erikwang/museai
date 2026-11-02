@@ -106,21 +106,15 @@ Pipeline: ReAct loop → free-text Final Answer → formatter call
 → `json.loads` → `validate_report()` → report, or an honest
 `unknown` fallback if validation fails for good.
 
-**Given in the skeleton:** `report.py` (schema, EXAMPLE_REPORT target,
-evidence-id extraction, fallback, the shape half of the validator),
-`complete_structured()` on MockLLM + OllamaLLM, `build_report()` flow in
-`agent.py`, the `--report` flag, and tests — 27 passing, 3 skipped.
+**Status: COMPLETE — all 30 tests pass, 0 skipped.**
+- ✅ `YU-1` in `report.py` — invented evidence ids rejected (exact-match
+  against the scratchpad; the `[evidence: none]` placeholder counts as
+  fabrication too).
+- ✅ `YU-2` in `report.py` — a non-unknown root cause must cite at least
+  one `log:` evidence id (primary source, not a health summary).
+- ✅ `YU-3` in `agent.py` — retry-once: parse/validation errors are fed
+  back to the model for one targeted fix before the `unknown` fallback.
 
-**Yours to fill (the core):**
-- `TODO(YU-1)` in `report.py` — reject invented evidence ids (the
-  anti-hallucination gate). Unskip `TestHomeworkYu1`.
-- `TODO(YU-2)` in `report.py` — a non-unknown root cause must cite at
-  least one `log:` evidence id (primary source, not a health summary).
-  Unskip `TestHomeworkYu2`.
-- `TODO(YU-3)` in `agent.py` — retry-once: feed the parse/validation
-  errors back to the model and let it fix its own report before you
-  fall back to `unknown`. Unskip `TestHomeworkYu3`.
-
-Stage 2 is done when all 30 tests run unskipped and green, and your
-local qwen3:8b produces a passing report on the pricing question
-3 times in a row.
+Remaining acceptance item (hardware side): local qwen3:8b produces a
+passing report on the pricing question 3 times in a row via
+`python main.py --provider ollama --report`.

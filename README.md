@@ -11,7 +11,7 @@ full design and roadmap.
 | Stage | What | Status |
 |---|---|---|
 | 1 | Hand-written ReAct loop, fake tools, synthetic data | ✅ in `prodguard/` |
-| 2 | Structured Output + evidence rule enforced in code | 🟨 skeleton pushed — 3 core TODOs (YU-1..3) open |
+| 2 | Structured Output + evidence rule enforced in code | ✅ code complete (30 tests, 0 skipped) — local-model acceptance runs remain |
 | 3 | RAG over runbooks | ⬜ |
 | 4 | LangGraph + human-in-the-loop + checkpointing | ⬜ |
 | 5 | Evaluation set (20 scenarios, hallucination rate) | ⬜ |
