@@ -52,6 +52,12 @@ Rules:
   (4) the draft next action.
   Do not skip a point: if you have no evidence for one, write "unknown"
   for that point. A short answer that skips points is a failed answer.
+- Before writing the Final Answer, you MUST call get_runbook once,
+  with a query naming the failure type (e.g. "database timeout",
+  "out of memory"), to fetch the approved runbook procedure. Base the
+  draft next action (point 4) on the returned section and cite its
+  [evidence: runbook:...] id. If it returns [evidence: none], say so
+  in point 4 and proceed on the other evidence.
 """
 
 ACTION_RE = re.compile(r"Action:\s*(\w+)\((.*?)\)", re.DOTALL)
