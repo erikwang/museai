@@ -13,9 +13,11 @@ like LangGraph does is, at its core, this loop plus state management.
 """
 from __future__ import annotations
 
+import json
 import re
 
 from llm import MockLLM
+from report import REPORT_SCHEMA, extract_evidence_ids, fallback_report, validate_report
 from tools import TOOLS
 
 MAX_STEPS = 6          # 保命参数: never let the loop turn forever
@@ -55,6 +57,73 @@ Rules:
 ACTION_RE = re.compile(r"Action:\s*(\w+)\((.*?)\)", re.DOTALL)
 ARG_RE = re.compile(r'(\w+)\s*=\s*"([^"]*)"')
 
+# ------------------------------------------------------- Stage 2: report
+
+FORMAT_PROMPT = """Convert the incident investigation below into a JSON incident report.
+
+JSON Schema (your output must match it exactly):
+{schema}
+
+The investigator's free-text final answer:
+{final_answer}
+
+Evidence ids you may cite — ONLY these. Any other id is fabrication:
+{evidence_ids}
+
+Filling rules:
+- root_cause_hypothesis keeps the quantified details from the evidence
+  (counts, percentages, times). Do not summarise the numbers away.
+- next_action_draft is restore-first: restoring the service comes
+  before fixing the cause.
+- Where the investigation has no evidence for a claim, write "unknown"
+  or leave the claim out. Never invent an evidence id.
+
+Return ONLY the JSON object."""
+
+
+def _call_structured(llm, prompt: str) -> str:
+    """Use the client's constrained structured call when it has one
+    (Ollama `format`, MockLLM's script); otherwise fall back to a plain
+    completion and let json.loads + the validator sort it out."""
+    if hasattr(llm, "complete_structured"):
+        return llm.complete_structured(prompt, REPORT_SCHEMA)
+    return llm.complete(prompt)
+
+
+def build_report(question: str, final_answer: str, scratchpad: str, llm) -> dict:
+    """Turn a free-text Final Answer into a validated report dict.
+
+    Pipeline: format -> parse -> validate -> (your retry) -> fallback.
+    A report that cannot pass validation becomes fallback_report():
+    'unknown' is a valid incident answer, a fabricated one is not.
+    """
+    evidence_ids = sorted(extract_evidence_ids(scratchpad))
+    prompt = FORMAT_PROMPT.format(
+        schema=json.dumps(REPORT_SCHEMA, indent=2),
+        final_answer=final_answer,
+        evidence_ids="\n".join(f"- {e}" for e in evidence_ids) or "(none)",
+    )
+
+    raw = _call_structured(llm, prompt)
+    try:
+        report = json.loads(raw)
+    except (json.JSONDecodeError, TypeError) as e:
+        # TODO(YU-3): before giving up, retry ONCE — call _call_structured
+        # again with the parse error appended to the prompt ('Your previous
+        # output was not valid JSON: <error>. Return ONLY the JSON object.')
+        # and try to parse that. Only fall back after the second failure.
+        return fallback_report(question, [f"formatter returned unparseable output: {e}"])
+
+    errors = validate_report(report, scratchpad)
+    if errors:
+        # TODO(YU-3): same retry-once idea for validation errors — feed the
+        # error list back ('Validation failed: <errors>. Fix only those
+        # problems and return the full JSON again.'), re-validate the new
+        # report, and only fall back if it still fails.
+        return fallback_report(question, errors)
+
+    return report
+
 
 def parse_action(text: str) -> tuple[str, dict] | None:
     """Pull `tool_name(arg="value", ...)` out of the model's reply.
@@ -71,8 +140,11 @@ def parse_action(text: str) -> tuple[str, dict] | None:
 
 
 def run_agent(question: str, llm=None, max_steps: int = MAX_STEPS, verbose: bool = True,
-              show_prompt: bool = False) -> str:
-    """Run the ReAct loop on one question. Returns the final answer text.
+              show_prompt: bool = False, as_report: bool = False):
+    """Run the ReAct loop on one question.
+
+    Returns the final answer text — or, with as_report=True (Stage 2), a
+    validated incident-report dict produced by build_report().
 
     show_prompt=True prints the EXACT string sent to the model at each step —
     the best way to learn what a model actually 'sees'. Try it once.
@@ -95,6 +167,8 @@ def run_agent(question: str, llm=None, max_steps: int = MAX_STEPS, verbose: bool
             answer = reply.split("Final Answer:", 1)[1].strip()
             if verbose:
                 print(f"\n[stopped: final answer after {step} step(s)]")
+            if as_report:
+                return build_report(question, answer, scratchpad, llm)
             return answer
 
         parsed = parse_action(reply)

@@ -85,6 +85,13 @@ class MockLLM:
             "it requires human approval."
         )
 
+    def complete_structured(self, prompt: str, schema: dict) -> str:
+        """Scripted structured reply: the EXAMPLE_REPORT from report.py,
+        serialised. Lets the Stage 2 pipeline run end-to-end offline."""
+        from report import EXAMPLE_REPORT
+
+        return json.dumps(EXAMPLE_REPORT)
+
 
 def _strip_think(text: str) -> str:
     """Remove <think>...</think> blocks some local models emit.
@@ -201,6 +208,45 @@ class OllamaLLM:
             ) from e
         if not content:
             raise RuntimeError("Ollama returned an empty reply.")
+        return _strip_think(content)
+
+    def complete_structured(self, prompt: str, schema: dict) -> str:
+        """One call with Ollama's `format` parameter: constrained decoding.
+
+        The model physically cannot emit tokens that break the JSON
+        Schema — compare this with Stage 1's 'please reply in this format'
+        prompt politeness. Non-streaming is fine here: a report is short.
+        Returns the raw reply text (JSON, if the model behaved); parsing
+        and validation are agent.py / report.py's job, not the client's.
+        """
+        payload = {
+            "model": self.model,
+            "messages": [{"role": "user", "content": prompt}],
+            "stream": False,
+            "think": False,
+            "format": schema,
+            "options": {
+                "temperature": self.temperature,
+                "num_ctx": self.num_ctx,
+                "num_predict": 1024,
+            },
+        }
+        req = urllib.request.Request(
+            f"{self.host}/api/chat",
+            data=json.dumps(payload).encode("utf-8"),
+            headers={"Content-Type": "application/json"},
+        )
+        try:
+            with urllib.request.urlopen(req, timeout=300) as resp:
+                data = json.loads(resp.read().decode("utf-8"))
+        except urllib.error.URLError as e:
+            raise RuntimeError(
+                f"Cannot reach Ollama at {self.host} for a structured call. "
+                f"Is it installed and running? (original error: {e})"
+            ) from e
+        content = data.get("message", {}).get("content", "")
+        if not content:
+            raise RuntimeError(f"Ollama returned an empty structured reply: {data}")
         return _strip_think(content)
 
 

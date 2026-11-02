@@ -92,7 +92,35 @@ Final Answer: ... OOM-killed at 15:02 [evidence: log:pricing-1502-oom] ...
 - [ ] With logs emptied, the agent answers "unknown" instead of inventing a cause
 - [ ] `max_steps` guard demonstrably stops a forever-looping brain (see tests)
 
-## Next
+## Stage 2 — Structured Output + evidence rules (skeleton)
 
-Stage 2: Structured Output (JSON Schema incident report) + the
-"no evidence = unknown" rule enforced by code, not by prompt politeness.
+The free-text Final Answer becomes a validated JSON incident report:
+
+```bash
+python main.py --demo --report          # offline, scripted brain
+python main.py --provider ollama --report
+```
+
+Pipeline: ReAct loop → free-text Final Answer → formatter call
+(Ollama `format` = constrained decoding against `REPORT_SCHEMA`)
+→ `json.loads` → `validate_report()` → report, or an honest
+`unknown` fallback if validation fails for good.
+
+**Given in the skeleton:** `report.py` (schema, EXAMPLE_REPORT target,
+evidence-id extraction, fallback, the shape half of the validator),
+`complete_structured()` on MockLLM + OllamaLLM, `build_report()` flow in
+`agent.py`, the `--report` flag, and tests — 27 passing, 3 skipped.
+
+**Yours to fill (the core):**
+- `TODO(YU-1)` in `report.py` — reject invented evidence ids (the
+  anti-hallucination gate). Unskip `TestHomeworkYu1`.
+- `TODO(YU-2)` in `report.py` — a non-unknown root cause must cite at
+  least one `log:` evidence id (primary source, not a health summary).
+  Unskip `TestHomeworkYu2`.
+- `TODO(YU-3)` in `agent.py` — retry-once: feed the parse/validation
+  errors back to the model and let it fix its own report before you
+  fall back to `unknown`. Unskip `TestHomeworkYu3`.
+
+Stage 2 is done when all 30 tests run unskipped and green, and your
+local qwen3:8b produces a passing report on the pricing question
+3 times in a row.
