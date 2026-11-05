@@ -1,4 +1,7 @@
-# Stage 1 demo + tests run on the Python standard library alone.
+# Stage 1-3 demo + tests run on the Python standard library alone.
+# Stage 4 (LangGraph graph + checkpointing) needs:
+langgraph>=1.0
+langgraph-checkpoint-sqlite>=3.0
 # Uncomment ONE provider when you do Exercise 2 (wire a real brain):
 # anthropic>=0.40
 # openai>=1.50

@@ -90,10 +90,11 @@ User symptom
 - ✅ 验收：问一个日志里没写处置方法的故障，它能从 Runbook 找到步骤并标出处
   （代码侧已验：相关性/排序/无匹配诚实返回/动作引用手册条款；本地模型实测待 Yu 跑）
 
-### Stage 4 — 换 LangGraph + Human-in-the-loop · 约 3-4 小时
-- 把手写循环迁到 LangGraph：状态、节点、checkpoint
+### Stage 4 — 换 LangGraph + Human-in-the-loop · 约 3-4 小时 · 🟨 骨架已推送（2026-11-05）
+- 把手写循环迁到 LangGraph：状态、节点、checkpoint（graph_agent.py；手写版 agent.py 保留对照，工具/检索/报告/校验全部复用）
 - “重启服务”类动作只能生成 draft，流程暂停等人工批准才继续（且仍只是模拟执行）
-- ✅ 验收：流程能在批准点停住、关掉重开能从 checkpoint 恢复
+- 核心三件套留给 Yu：TODO(YU-1) runbook 门禁路由、TODO(YU-2) interrupt() 批准断点、TODO(YU-3) 批准后路由（骨架默认全部走安全侧：不强制、不暂停、不执行）
+- ✅ 验收：流程能在批准点停住、关掉重开能从 checkpoint 恢复（原型已在沙盒跨进程验证；Yu 本地完成三件套后复验）
 
 ### Stage 5 — Eval（最拉开差距的一步）· 约 2-3 小时
 - 建 20 个场景的金标集：期望工具、期望根因、期望 severity
