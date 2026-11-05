@@ -74,32 +74,25 @@ Final Answer: ... OOM-killed at 15:02 [evidence: log:pricing-1502-oom] ...
 - Play with retrieval without any LLM:
   `python main.py --runbook-search "database timeout pool"`
 
-## Stage 4 — LangGraph + human-in-the-loop (skeleton)
+## Stage 4 — LangGraph + human-in-the-loop (complete)
 
 New files: `graph_agent.py` (the graph) and `main_graph.py` (CLI).
 The hand-written `agent.py` stays untouched for comparison; tools,
 runbooks, report and validator are reused as-is. Install first:
-`pip install -r requirements.txt`.
+`pip install -r requirements.txt`. All 49 tests pass, 0 skipped.
 
-**Given in the skeleton:** structured `ProdGuardState`, the investigate
-loop as a node (one ReAct step per visit), `force_runbook`,
-`build_report` / simulated-execution / finalize nodes, full graph
-wiring, SQLite checkpointing, the run/interrupt/resume CLI, and tests —
-43 passing, 6 skipped.
+- ✅ `YU-1` — `runbook_gate()`: an investigation that never consulted
+  a runbook is routed to `force_runbook` (at most once) — the Stage 3
+  lesson enforced by structure, not by asking the model nicely.
+- ✅ `YU-2` — `request_approval()`: the graph truly pauses on
+  `interrupt()`; the resumed decision (approve / reject / edit + note)
+  is mapped into state, and an unrecognised decision counts as NO.
+- ✅ `YU-3` — `route_after_approval()`: only `approved` / `edited`
+  reach simulated execution; everything else finalizes unexecuted.
 
-**Yours to fill (the core):**
-- `TODO(YU-1)` — `runbook_gate()`: route investigations that never
-  consulted a runbook to `force_runbook` (at most once). The Stage 3
-  lesson, enforced by structure instead of by asking the model nicely.
-- `TODO(YU-2)` — `request_approval()`: actually pause the graph with
-  `interrupt()` and map the human's resumed decision
-  (approve / reject / edit + note) into state.
-- `TODO(YU-3)` — `route_after_approval()`: approved/edited → simulated
-  execution; everything else → finalize. Skeleton defaults to never
-  executing — keep that bias.
-
-Try the skeleton: `python main_graph.py --demo --thread case-1`, then
-resume the same thread with `--resume approve` once YU-2 is wired.
+Try it: `python main_graph.py --demo --thread case-1` pauses at the
+approval gate; exit, come back, and resume the same thread with
+`--resume approve` (or `reject` / `edit --action "..."`).
 
 ## Files
 

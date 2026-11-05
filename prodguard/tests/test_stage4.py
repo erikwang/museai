@@ -72,7 +72,6 @@ class TestSkeletonGiven(unittest.TestCase):
 
 
 @unittest.skipUnless(HAS_LANGGRAPH, "langgraph not installed")
-@unittest.skip("TODO(YU-1): implement runbook_gate in graph_agent.py")
 class TestHomeworkYu1(unittest.TestCase):
     def test_unconsulted_investigation_is_forced(self):
         state = initial_state("q")
@@ -90,7 +89,6 @@ class TestHomeworkYu1(unittest.TestCase):
 
 
 @unittest.skipUnless(HAS_LANGGRAPH, "langgraph not installed")
-@unittest.skip("TODO(YU-2): wire interrupt() in request_approval")
 class TestHomeworkYu2(unittest.TestCase):
     def test_graph_pauses_at_approval_then_resumes(self):
         graph = build_graph(llm=MockLLM())
@@ -118,7 +116,6 @@ class TestHomeworkYu2(unittest.TestCase):
 
 
 @unittest.skipUnless(HAS_LANGGRAPH, "langgraph not installed")
-@unittest.skip("TODO(YU-3): implement route_after_approval in graph_agent.py")
 class TestHomeworkYu3(unittest.TestCase):
     def test_approved_and_edited_route_to_execute(self):
         for status in ("approved", "edited"):

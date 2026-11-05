@@ -13,7 +13,7 @@ full design and roadmap.
 | 1 | Hand-written ReAct loop, fake tools, synthetic data | ✅ in `prodguard/` |
 | 2 | Structured Output + evidence rule enforced in code | ✅ code complete (30 tests, 0 skipped) — local-model acceptance runs remain |
 | 3 | RAG over runbooks | ✅ code complete (38 tests) |
-| 4 | LangGraph + human-in-the-loop + checkpointing | 🟨 skeleton pushed — 3 core TODOs (YU-1..3) open |
+| 4 | LangGraph + human-in-the-loop + checkpointing | ✅ complete (49 tests) |
 | 5 | Evaluation set (20 scenarios, hallucination rate) | ⬜ |
 | 6 | MCP server + multi-agent (optional) | ⬜ |
 

@@ -34,11 +34,11 @@ with langgraph's interrupt() and wait for a human decision; the
 checkpointer (per thread_id) persists the whole State at that point,
 so the process can exit and resume tomorrow exactly where it stopped.
 
-YOUR THREE CORE TASKS are marked TODO(YU-1..3) below. The plumbing
-around them runs end-to-end right now — with three deliberate holes:
-the gate never forces, the approval never actually pauses, and the
-routing after approval never executes anything. Safe holes, all of
-them: the skeleton can under-deliver, it cannot over-act.
+The three core policies (YU-1..3, below) are implemented: the gate
+forces a runbook consultation the investigation skipped, the approval
+node truly pauses on interrupt(), and only an explicit human approval
+routes to (simulated) execution. Every default falls toward NOT
+acting — deny-by-default, end to end.
 """
 from __future__ import annotations
 
@@ -82,51 +82,50 @@ class ProdGuardState(TypedDict, total=False):
 def runbook_gate(state: ProdGuardState) -> str:
     """Conditional edge out of the gate node: 'force_runbook' or
     'build_report'."""
-    # TODO(YU-1) — the enforcement the Stage 3 prompt rule could
-    #   never guarantee: if the investigation finished WITHOUT
-    #   consulting a runbook, do not let the flow reach the report —
-    #   route to 'force_runbook' so the procedure enters the record
-    #   first. Guard against loops with state['gate_forced']: force
-    #   at most once, then proceed to 'build_report' regardless.
-    #   (Right now this returns 'build_report' unconditionally —
-    #   the gate is wide open, exactly like the prompt-only era.)
+    # YU-1 — structural enforcement (the Stage 3 lesson): a prompt
+    #   rule ASKS the model to consult the runbook; this edge MAKES
+    #   the record contain a consultation before any report exists.
+    #   gate_forced caps it at one forced pass — a gate that can loop
+    #   forever is a worse failure than a missing consultation.
+    if not state.get("runbook_consulted") and not state.get("gate_forced"):
+        return "force_runbook"
     return "build_report"
 
 def request_approval(state: ProdGuardState) -> dict:
     """The human-in-the-loop node: pause, wait, record the decision."""
-    # TODO(YU-2) — make the graph actually STOP here:
-    #   decision = interrupt({
-    #       "kind": "approval_request",
-    #       "severity": state["report"]["severity"],
-    #       "action": state["approved_action"],
-    #       "report": state["report"],
-    #   })
-    #   interrupt() raises inside the node; LangGraph checkpoints
-    #   the state and returns control to the caller with the
-    #   payload in result["__interrupt__"]. When the human answers,
-    #   the caller resumes with Command(resume={...}) and THIS
-    #   NODE RUNS AGAIN from the top, with interrupt() returning
-    #   the resumed value instead of raising. (So: no side effects
-    #   before the interrupt call — they would run twice.)
-    #   Resume protocol (fixed — the CLI already speaks it):
-    #     {"decision": "approve"|"reject"|"edit",
-    #      "note": str, "action": str (only for edit)}
-    #   Map it to state: approval_status approved/rejected/edited,
-    #   approval_note from 'note', and for 'edit' replace
-    #   approved_action with the human's 'action' text.
-    #   (Right now: no pause at all — status 'auto_skipped', the
-    #   flow sails through the checkpoint that exists to stop it.)
-    return {"approval_status": "auto_skipped",
-            "approval_note": "skeleton: interrupt() not wired yet"}
+    # YU-2 — the graph actually STOPS here. interrupt() raises;
+    #   LangGraph checkpoints the state and hands the payload to the
+    #   caller as result["__interrupt__"]. On resume this node re-runs
+    #   from the top and interrupt() RETURNS the human's decision
+    #   instead of raising — so nothing before this line may have
+    #   side effects (it would run twice).
+    #   Resume protocol: {"decision": "approve"|"reject"|"edit",
+    #                     "note": str, "action": str (edit only)}
+    #   An unrecognised decision maps to 'rejected': when the human's
+    #   intent is unclear, the recorded answer is NO.
+    decision = interrupt({
+        "kind": "approval_request",
+        "severity": state["report"]["severity"],
+        "action": state["approved_action"],
+        "report": state["report"],
+    })
+    mapping = {"approve": "approved", "reject": "rejected", "edit": "edited"}
+    update: dict = {
+        "approval_status": mapping.get(decision.get("decision"), "rejected"),
+        "approval_note": decision.get("note", ""),
+    }
+    if decision.get("decision") == "edit" and decision.get("action"):
+        update["approved_action"] = decision["action"]
+    return update
 
 def route_after_approval(state: ProdGuardState) -> str:
     """Conditional edge: 'execute' or 'finalize'."""
-    # TODO(YU-3) — route on the recorded decision:
-    #   approval_status in ('approved', 'edited') -> 'execute'
-    #   anything else (rejected, pending, auto_skipped) -> 'finalize'
-    #   The safe default is what you see here: while approval is
-    #   not wired, NOTHING routes to execution. Keep that bias —
-    #   when in doubt, the graph must fall toward not acting.
+    # YU-3 — only an explicit human YES reaches execution. The
+    #   allow-list is exactly two values; every other status —
+    #   rejected, pending, auto_skipped, or anything unexpected —
+    #   falls through to finalize. Deny-by-default, like a firewall.
+    if state.get("approval_status") in ("approved", "edited"):
+        return "execute"
     return "finalize"
 
 
